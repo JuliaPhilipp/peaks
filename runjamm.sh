@@ -11,14 +11,14 @@ mkdir ./output
 
 set -e
 
-JAMM="/afs/cats.ucsc.edu/users/c/juphilip/software/jamm/JAMM.sh"
-CHR_LENGTH="/afs/cats.ucsc.edu/users/c/juphilip/datasets/human_annotation/chromsize.txt"
-# ANNOTATION="/data/ohler/Julia/annotation/mergedannotationX+.bed"
+JAMM="/campusdata/juphilip/software/jamm/JAMM.sh"
+CHR_LENGTH="/campusdata/juphilip/datasets/human_annotation/chromsize.txt"
+# ANNOTATION="/campusdata/Julia/annotation/mergedannotationX+.bed"
 MODE="normal"
-INPUT="/afs/cats.ucsc.edu/users/c/juphilip/datasets/imp3/panc1/bedfiles"
-OUTPUT="/afs/cats.ucsc.edu/users/c/juphilip/datasets/imp3/panc1/bedfiles"
+INPUT="/campusdata/juphilip/datasets/imp3/panc1/bedfiles"
+OUTPUT="/campusdata/juphilip/datasets/imp3/panc1/bedfiles"
 BIN="30"
-# BACKGROUND="/data/ohler/Julia/CG6422/bedfiles/ChrX/background/plus/CG6422_INPUT_all.bed"
+# BACKGROUND="/campusdata/Julia/CG6422/bedfiles/ChrX/background/plus/CG6422_INPUT_all.bed"
 
 bash $JAMM -s $INPUT -o ./output -g $CHR_LENGTH -b $BIN -m $MODE
 
