@@ -1,0 +1,289 @@
+---
+title: "clipper_peaks"
+output: html_document
+---
+
+**Dec 19th 2016**
+
+```{r reading files, echo=FALSE, warning=FALSE, message=FALSE}
+library(RColorBrewer, quietly = TRUE)
+#read annotated cluster files
+cluster.files <- list.files("/Users/julia/Documents/02_Thesis/05_results/imp3/panc1/Clipper/annotated/", recursive=TRUE, full.names = TRUE, pattern = "annotated")
+file.exists(cluster.files)
+cluster.names <- gsub("_filtered_annotated.bed","",list.files("/Users/julia/Documents/02_Thesis/05_results/imp3/panc1/Clipper/annotated/",   pattern = "annotated"))
+
+#result_summary <- list.files("/Volumes/ohler/Julia/peakfinding/parametertest/cERMIT_results/Feb_19", recursive=TRUE, full.names = TRUE, pattern = "summary.txt$")
+
+#result.names <- gsub("_summary.txt","",list.files("/Volumes/ohler/Julia/peakfinding/parametertest/cERMIT_results/Feb_19",  pattern = "summary.txt$"))
+
+#read_cermit_summary_files
+#read_summary<-function(x){
+ # temp <- read.table(x,sep="\t",fill=TRUE,header=F,check.names = F , stringsAsFactors=F)
+  #return(temp)
+#}
+
+#function for read in
+get_cluster_files <- function(x){
+  temp<-read.delim(x, header=F,sep="\t", stringsAsFactors = FALSE)
+  colnames(temp)<-c("ID","chr","start","stop","strand","peakscore","focus_ratio","annotation","detailed_annotation","distance_to_tss","nearest_promoter_ID","entrez_ID","nearest_unigene","nearest_refseq","nearest_ensembl","gene_name","gene_alias","gene_description","gene_type")
+  return(temp[-1,])
+}
+
+#temp[-(nrow(temp)),]
+#load peaks
+clusters <- lapply(X=cluster.files,FUN=get_cluster_files)
+names(clusters)<-cluster.names
+
+# column 8 (annotation) needs to be reduced to 3'UTR/CDS/etc
+for (i in 1:length(clusters)){
+  for (k in 1:nrow(clusters[[i]])){
+    if (!is.na(clusters[[i]][k,8])){
+      clusters[[i]][k,8] <- strsplit(clusters[[i]][k,8],"\\(")[[1]][1]
+      clusters[[i]][k,8] <- substr(clusters[[i]][k,8],1,nchar(clusters[[i]][k,8])-1)
+    }
+  }
+}
+
+```
+
+
+
+```{r JAMM results barplot, echo=FALSE, fig.width=10, fig.height=6, warning=FALSE, message=FALSE}
+
+for (i in 1: length(clusters)){
+  barplot(sort(table(clusters[[i]]$annotation),decreasing=TRUE)[1:10], las=2, cex.names=0.8,main=names(clusters)[i], cex.main=1, ylab="#", ylim=c(0,15000),col=brewer.pal(8,"Pastel2"))
+  text(x=6,y=12000,paste0("total peaks:","\n",nrow(clusters[[i]])))
+}
+```
+
+
+
+```{r JAMM results pie chart, echo=FALSE, fig.width=10, fig.height=6, warning=FALSE, message=FALSE}
+#pie chart, proportion of each annotation category of total peaks
+# put 1:8, because there are only 8 annotation categories right now
+#par(mfrow=c(2,4))
+for (i in 1: length(clusters)){
+  lbls <- names(sort(table(clusters[[i]]$annotation),decreasing=TRUE)[1:8])
+  pct <- round(sort(table(clusters[[i]]$annotation),decreasing=TRUE)[1:8]/sum(sort(table(clusters[[i]]$annotation),decreasing=TRUE)[1:8])*100)
+  lbls <- paste(lbls, pct)
+  lbls <- paste(lbls,"%",sep="")
+  pie(sort(table(clusters[[i]]$annotation),decreasing=TRUE)[1:8], labels = lbls, main=names(clusters)[i],cex=0.8, col=brewer.pal(8,"Pastel2"),cex.main=0.9)
+}
+```
+
+
+
+```{r JAMM results peak score/category, echo=FALSE, warning=FALSE, message=FALSE}
+sort(table(clusters[[i]]$annotation),decreasing=TRUE)[1:8]
+anno_cat<-c("3' UTR","intron","exon","TTS","Intergeni","non-coding","promoter-TSS","5' UTR")
+sub_peak_score<-function(x){
+  liste<-list()
+  for ( k in 1:length(anno_cat)){
+    scrs<-log10(as.numeric(subset(x,x$annotation==anno_cat[k])[,6]))
+    liste[[paste0(anno_cat[k])]]<-scrs
+  }
+  return(liste)
+}
+
+#peak score in annotation category
+liste<-list()
+for (i in 1:length(clusters)){
+  df<-clusters[[i]]
+  for ( k in 1:length(anno_cat)){
+    scrs<-log10(as.numeric((subset(df,df$annotation==anno_cat[k])[,6])))
+    liste[[paste0(names(clusters[i]),"_",anno_cat[k])]]<-scrs
+  }
+}
+```
+
+```{r JAMM boxplot, echo=FALSE, fig.width=10, fig.height=6, warning=FALSE, message=FALSE, eval=FALSE}
+par(mfrow=c(1,1), mar=c(11,6,4,4)+.1,xpd=F)
+boxplot(liste, notch=TRUE,outline=F,bty='n', xpd=TRUE, las=2, cex.axis=0.7, ylab="log10(score)", cex.main=0.8,
+        main="JAMM peak scores\nper annotation category" , 
+        col=c(rep(brewer.pal(12,"Set3")[1],5),  rep(brewer.pal(12,"Set3")[2],5), rep(brewer.pal(12,"Set3")[3],5), 
+              rep(brewer.pal(12,"Set3")[4],5) , rep(brewer.pal(12,"Set3")[5],5), rep(brewer.pal(12,"Set3")[6],5), 
+              rep(brewer.pal(12,"Set3")[7],5), rep(brewer.pal(12,"Set3")[8],5) , rep(brewer.pal(12,"Set3")[9],5),
+              rep(brewer.pal(12,"Set3")[10],5), rep(brewer.pal(12,"Set3")[11],5), rep(brewer.pal(12,"Set3")[12],5)))
+```
+
+
+
+```{r JAMM results peak scores, echo=FALSE, fig.width=10, fig.height=6, warning=FALSE, message=FALSE, eval=FALSE}
+# make borders smaller here
+anno_peak_scrs<-lapply(X=clusters,FUN=sub_peak_score)
+par(mfrow=c(2,4))
+for (i in 1: length(anno_peak_scrs)){
+  boxplot(anno_peak_scrs[[i]], notch=TRUE,outline=F,bty='n', xpd=TRUE, las=2, cex.axis=0.7, ylab="peak scores", cex.main=0.8,
+          ylim=c(3,5.5),main=names(anno_peak_scrs)[i] , col=brewer.pal(12,"Set3")[i])
+} 
+```
+
+
+
+```{r JAMM peak coverage, echo=FALSE, fig.width=10, fig.height=6, warning=FALSE, message=FALSE, include=FALSE, eval=FALSE}
+# do I even have information about the coverage??
+# what column was 8 in JAMM files
+# could I include this in the homer annotation files?
+
+#coverage at peaks
+liste<-list()
+for (i in 1:length(clusters)){
+  df<-clusters[[i]]
+  for ( k in 1:length(anno_cat)){
+    scrs<-as.numeric(as.character(subset(df,df$annotation==anno_cat[k])[,8]))
+    liste[[paste0(names(clusters[i]),"_",anno_cat[k])]]<-scrs
+  }
+}
+par(mfrow=c(1,1), mar=c(11,6,4,4)+.1,xpd=F)
+boxplot(liste, notch=TRUE,outline=F,bty='n', xpd=TRUE, las=2, cex.axis=0.6, ylab="coverage (reads)", cex.main=0.8,
+        main="JAMM peak coverage\nper annotation category" , cex.lab=0.7,
+        col=c(rep(brewer.pal(12,"Set3")[1],5),  rep(brewer.pal(12,"Set3")[2],5), rep(brewer.pal(12,"Set3")[3],5), 
+              rep(brewer.pal(12,"Set3")[4],5) , rep(brewer.pal(12,"Set3")[5],5), rep(brewer.pal(12,"Set3")[6],5), 
+              rep(brewer.pal(12,"Set3")[7],5), rep(brewer.pal(12,"Set3")[8],5) , rep(brewer.pal(12,"Set3")[9],5),
+              rep(brewer.pal(12,"Set3")[10],5), rep(brewer.pal(12,"Set3")[11],5), rep(brewer.pal(12,"Set3")[12],5)))
+
+```
+
+```{r width at peaks,echo=FALSE, fig.width=10, fig.height=4, warning=FALSE}
+#width at peaks
+liste<-list()
+for (i in 1:length(clusters)){
+  df<-clusters[[i]]
+  for ( k in 1:length(anno_cat)){
+    sub<-subset(df,df$annotation==anno_cat[k])
+    scrs<-as.numeric((sub[,4]))-as.numeric((sub[,3]))
+    liste[[paste0(names(clusters[i]),"_",anno_cat[k])]]<-scrs
+  }
+}
+```
+
+
+```{r JAMM another boxplot, echo=FALSE, fig.width=10, fig.height=6, warning=FALSE, message=FALSE}
+par(mfrow=c(1,1), mar=c(11,6,4,4)+.1,xpd=F)
+boxplot(liste, notch=TRUE,outline=F,bty='n', xpd=TRUE, las=2, cex.axis=0.6, ylab="width (nt)", cex.main=0.8,
+        main="CLIPper peak width\nper annotation category" , cex.lab=0.7, 
+        col=c(rep(brewer.pal(12,"Set3")[1],8),  rep(brewer.pal(12,"Set3")[2],8), rep(brewer.pal(12,"Set3")[3],8), 
+              rep(brewer.pal(12,"Set3")[4],8) , rep(brewer.pal(12,"Set3")[5],8), rep(brewer.pal(12,"Set3")[6],8), 
+              rep(brewer.pal(12,"Set3")[7],8), rep(brewer.pal(12,"Set3")[8],8) , rep(brewer.pal(12,"Set3")[9],8),
+              rep(brewer.pal(12,"Set3")[10],8), rep(brewer.pal(12,"Set3")[11],8), rep(brewer.pal(12,"Set3")[12],8)))
+
+```
+
+
+
+```{r JAMM density peak length, echo=FALSE, fig.width=10, fig.height=6, warning=FALSE, message=FALSE, eval=FALSE}
+#density peak length
+wid<-function(x){
+  return(as.integer(as.character(x$stop))-as.integer(as.character(x$start)))
+}
+
+par(mfrow=c(1,2), mar=c(11,6,4,4)+.1,xpd=F)
+boxplot(lapply(X=clusters,FUN=wid), notch=FALSE,names=names(clusters), col=brewer.pal(12,"Set3"), ylab="nt", main="peak width", cex.main=1, bty='n',outline=F, xpd=TRUE, las=2)
+
+#density peak length
+scores<-function(x){
+  return(as.numeric(as.character(x[,6])))
+}
+#par(mfrow=c(1,1))
+boxplot(lapply(X=clusters,FUN=scores), notch=TRUE,names=names(clusters), col=brewer.pal(12,"Set3"), ylab="log10(peak score)", main="peak score", cex.main=1, bty='n',outline=F, xpd=TRUE, las=2)
+```
+
+
+
+```{r cERMIT prep, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE, eval=FALSE}
+#read out the cumulative explanation for every found motif
+get_motif_cumu <- function(x){
+  lines <- (which(grepl("cumulative %",x[,1])==TRUE))-1
+  cumu<-vector()
+  for ( i in 1:length(lines)){
+    cumu <- c(cumu,as.integer(gsub(")","",unlist(strsplit(x[lines[i],],split=","))[3])))
+  }
+  return(cumu)
+}
+get_motif_cumu_top10 <- function(x){
+  lines <- (which(grepl("cumulative %",x[,1])==TRUE))-1
+  cumu<-vector()
+  for ( i in 1:length(lines)){
+    cumu <- c(cumu,as.integer(gsub(")","",unlist(strsplit(x[lines[i],],split=","))[3])))
+  }
+  return(cumu[1:10])
+}
+
+#read in summary files
+res_sums <- lapply(X=result_summary ,FUN=read_summary)
+#name them
+names(res_sums)<- result.names
+#retrieve cumulative evidence
+cumulative_dis <- lapply(X=res_sums,FUN=get_motif_cumu)
+cumulative_dis_top10 <- lapply(X=res_sums,FUN=get_motif_cumu_top10)
+```
+
+
+
+```{r cERMIT something, echo=FALSE, fig.width=10, fig.height=6, warning=FALSE, message=FALSE, include=FALSE, eval=FALSE}
+par(mfrow=c(1,1), mar=c(10,6,4,4)+.1,xpd=F)
+boxplot(cumulative_dis, notch=TRUE,outline=F,bty='n', xpd=TRUE, las=2, cex.axis=0.6, ylab="cumulative %", cex.main=0.8,
+        main="cERMIT motif\ncumulative explanation\nall motifs" , 
+        col=c(rep(brewer.pal(12,"Set3")[1],6),  rep(brewer.pal(12,"Set3")[2],6), rep(brewer.pal(12,"Set3")[3],6), 
+              rep(brewer.pal(12,"Set3")[4],6) , rep(brewer.pal(12,"Set3")[5],6), rep(brewer.pal(12,"Set3")[6],6), 
+              rep(brewer.pal(12,"Set3")[7],6), rep(brewer.pal(12,"Set3")[8],6) , rep(brewer.pal(12,"Set3")[9],6),
+              rep(brewer.pal(12,"Set3")[10],6), rep(brewer.pal(12,"Set3")[11],6), rep(brewer.pal(12,"Set3")[12],6)))
+
+par(mfrow=c(1,1), mar=c(10,6,4,4)+.1,xpd=F)
+boxplot(cumulative_dis_top10, notch=F,outline=F,bty='n', xpd=TRUE, las=2, cex.axis=0.6, ylab="cumulative %", cex.main=0.8,
+        main="cERMIT motif\ncumulative explanation\ntop10 motifs" ,
+        col=c(rep(brewer.pal(12,"Set3")[1],6),  rep(brewer.pal(12,"Set3")[2],6), rep(brewer.pal(12,"Set3")[3],6), 
+              rep(brewer.pal(12,"Set3")[4],6) , rep(brewer.pal(12,"Set3")[5],6), rep(brewer.pal(12,"Set3")[6],6), 
+              rep(brewer.pal(12,"Set3")[7],6), rep(brewer.pal(12,"Set3")[8],6) , rep(brewer.pal(12,"Set3")[9],6),
+              rep(brewer.pal(12,"Set3")[10],6), rep(brewer.pal(12,"Set3")[11],6), rep(brewer.pal(12,"Set3")[12],6)))
+```
+
+
+
+
+```{r cERMIT motif scores, echo=FALSE, fig.width=10, fig.height=6, warning=FALSE, message=FALSE, include=FALSE, eval=FALSE}
+get_motifscores <- function(x){
+  #takes from all found clusters only the first score/highest score
+  lines <- (which(grepl("^[1-9]",x[,1], perl=TRUE)==TRUE))
+  sco<-vector()
+  for ( i in 1:length(lines)){
+    temp_1 <- unlist(strsplit(x[lines[i],],split=","))[1]
+    temp_2 <- unlist(strsplit(temp_1,split="               "))
+    temp_3 <- gsub("\\(",";",temp_2)    
+    sco <- c(sco,as.numeric(unlist(strsplit(temp_3[2],split=";"))[1]))
+  }
+  return(sco)
+}
+get_motifscores_top10 <- function(x){
+  #takes from all found clusters only the first score/highest score
+  lines <- (which(grepl("^[1-9]",x[,1], perl=TRUE)==TRUE))
+  sco<-vector()
+  for ( i in 1:length(lines)){
+    temp_1 <- unlist(strsplit(x[lines[i],],split=","))[1]
+    temp_2 <- unlist(strsplit(temp_1,split="               "))
+    temp_3 <- gsub("\\(",";",temp_2)    
+    sco <- c(sco,as.numeric(unlist(strsplit(temp_3[2],split=";"))[1]))
+  }
+  return(sco[1:10])
+}
+
+mo_scores <- lapply(X=res_sums,FUN=get_motifscores)
+mo_scores_top10 <- lapply(X=res_sums,FUN=get_motifscores_top10)
+
+
+par(mfrow=c(1,1), mar=c(10,6,4,4)+.1,xpd=F)
+boxplot(mo_scores, notch=TRUE,outline=F,bty='n', xpd=TRUE, las=2, cex.axis=0.7, ylab="cERMIT motif score", cex.main=0.8,
+        main="cERMIT motif\nall motifs scores" , 
+        col=c(rep(brewer.pal(12,"Set3")[1],6),  rep(brewer.pal(12,"Set3")[2],6), rep(brewer.pal(12,"Set3")[3],6), 
+              rep(brewer.pal(12,"Set3")[4],6) , rep(brewer.pal(12,"Set3")[5],6), rep(brewer.pal(12,"Set3")[6],6), 
+              rep(brewer.pal(12,"Set3")[7],6), rep(brewer.pal(12,"Set3")[8],6) , rep(brewer.pal(12,"Set3")[9],6),
+              rep(brewer.pal(12,"Set3")[10],6), rep(brewer.pal(12,"Set3")[11],6), rep(brewer.pal(12,"Set3")[12],6)))
+
+par(mfrow=c(1,1), mar=c(10,6,4,4)+.1,xpd=F)
+boxplot(mo_scores_top10, notch=TRUE,outline=F,bty='n', xpd=TRUE, las=2, cex.axis=0.7, ylab="cERMIT motif score", cex.main=0.8,
+        main="cERMIT motif\ntop10 motifs scores" , 
+        col=c(rep(brewer.pal(12,"Set3")[1],6),  rep(brewer.pal(12,"Set3")[2],6), rep(brewer.pal(12,"Set3")[3],6), 
+              rep(brewer.pal(12,"Set3")[4],6) , rep(brewer.pal(12,"Set3")[5],6), rep(brewer.pal(12,"Set3")[6],6), 
+              rep(brewer.pal(12,"Set3")[7],6), rep(brewer.pal(12,"Set3")[8],6) , rep(brewer.pal(12,"Set3")[9],6),
+              rep(brewer.pal(12,"Set3")[10],6), rep(brewer.pal(12,"Set3")[11],6), rep(brewer.pal(12,"Set3")[12],6)))
+```
